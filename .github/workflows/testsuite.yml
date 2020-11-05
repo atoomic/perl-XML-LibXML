@@ -1,0 +1,108 @@
+name: Perl testsuite
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["*"]
+
+jobs:
+  ubuntu:
+    env:
+      PERL_USE_UNSAFE_INC: 0
+      AUTHOR_TESTING: 1
+      AUTOMATED_TESTING: 1
+      RELEASE_TESTING: 1
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "install deps"
+        run: |
+          sudo apt-get update -y ||:
+          sudo apt-get --no-install-recommends -y install libxml2-dev
+      - uses: actions/checkout@v2
+      - name: perl -V
+        run: perl -V
+      - name: Install Dependencies using cpm
+        uses: perl-actions/install-with-cpm@v1
+        with:
+          install: |
+            Test::CPAN::Changes
+            Test::Pod
+            Test::TrailingSpace
+            Test::Kwalitee
+            Alien::Libxml2
+          sudo: true
+      # this is insane...
+      - run: perl Makefile.PL
+      - run: "make docs ||:"
+      - run: perl Makefile.PL
+      - run: make test
+      - run: make disttest
+
+  linux:
+    name: "linux ${{ matrix.perl-version }}"
+    #needs: [ubuntu]
+    env:
+      PERL_USE_UNSAFE_INC: 0
+      AUTHOR_TESTING: 1
+      AUTOMATED_TESTING: 1
+      RELEASE_TESTING: 1
+      working-directory: ./Quota
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        perl-version:
+          [
+            "5.32",
+            "5.30",
+            "5.28",
+            "5.26",
+            "5.24",
+            "5.22",
+            "5.20",
+            "5.18",
+            "5.16",
+            "5.14",
+            # deps shows that the minimal Perl version is 5.14
+            # Test-TrailingSpace Your Perl (5.010001) is not in the range '5.014'
+            #"5.12",
+            #"5.10",
+            #"5.8",
+          ]
+
+    container:
+      image: perl:${{ matrix.perl-version }}
+
+    steps:
+      - name: "install deps"
+        run: |
+          apt-get update -y ||:
+          apt-get -y --no-install-recommends install libxml2-dev
+      - uses: actions/checkout@v2
+      - name: perl -V
+        run: perl -V
+      - name: Install Dependencies using cpanm
+        uses: perl-actions/install-with-cpanm@v1
+        with:
+          install: |
+            Class::XSAccessor
+            Test::CPAN::Changes
+            Test::Pod
+            Test::TrailingSpace
+            Alien::Libxml2
+            XML::SAX::Exception
+            XML::SAX::DocumentLocator
+            XML::SAX::ParserFactory
+            XML::NamespaceSupport
+          sudo: false
+      # this is insane...
+      - run: perl Makefile.PL
+      - run: make
+      - run: "make docs ||:"
+      - run: perl Makefile.PL
+      - run: make test
